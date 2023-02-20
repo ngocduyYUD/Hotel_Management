@@ -14,3 +14,5 @@ Vào thư mục b và chạy lệnh: cmake \.. -G Ninja
 Chạy lệnh: ninja
 
 Tiếp đến, copy file hotel.glade vào trong b sau đó chạy lệnh trong b: ./hotel ./hotel.glade
+# Lưu ý
+Ở trên là hướng dẫn chạy trên ubuntu. Ở các hệ điều hành khác có thể không được 
