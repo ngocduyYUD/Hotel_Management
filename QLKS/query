@@ -1,0 +1,132 @@
+select * from loai_phong
+select * from phong_kem_phieu_thue
+select * from phieu_thue
+select * from phong
+--1.Đưa ra toàn bộ thông tin của khách hàng mã KH0001
+select ma_khach_hang, ho_ten, sdt, cmnd from khach_hang
+where ma_khach_hang = 'KH0001';
+--2 dưa ra thông tin về phiếu thuê mã PT0001
+select * from khach_hang
+select pt.ma_phieu_thue, kh.ma_khach_hang, ho_ten, sdt, cmnd, ngay_lap, phong.ma_phong, ten_phong, ngay_den, ngay_di
+from khach_hang kh, phieu_thue pt, phong, phong_kem_phieu_thue ptk
+where pt.ma_phieu_thue = 'PT0001'
+and pt.ma_khach_hang = kh.ma_khach_hang
+and pt.ma_phieu_thue = ptk.ma_phieu_thue
+and ptk.ma_phong = phong.ma_phong
+--3.đưa ra số tiền phòng phải thanh toán của khách hàng mã KH0001
+select pt.ma_khach_hang, phong.ten_phong, (lp.thue_theo_ngay * (ptk.ngay_di::date - ptk.ngay_den::date)) as tongtien 
+from phieu_thue pt, loai_phong lp, phong_kem_phieu_thue ptk , phong 
+where pt.ma_khach_hang = 'KH0001'
+and pt.ma_phieu_thue = ptk.ma_phieu_thue
+and ptk.ma_phong = phong.ma_phong
+and phong.ma_loai_phong = lp.ma_loai_phong;
+--4.đưa ra các dịch vụ mà khách hàng KH0003 đã sử dụng
+select * from lich_su_su_dungdv
+select * from dich_vu
+select * from hoa_don
+select * from dich_vu_free
+
+select ma_khach_hang, lsdv.ma_dich_vu, ten_dich_vu ,ma_hoa_don
+from lich_su_su_dungdv lsdv, dich_vu dv
+where ma_khach_hang = 'KH0003'
+and lsdv.ma_dich_vu = dv.ma_dich_vu;
+--5.danh sách các phòng đang trống
+select phong.ma_phong, phong.ten_phong, phong.ma_loai_phong
+from phong,
+(select ma_phong
+from phong_kem_phieu_thue
+where current_date > ngay_den
+intersect
+select ma_phong
+from phong_kem_phieu_thue
+where current_date < ngay_di) as b1
+where phong.ma_phong != b1.ma_phong;
+
+SELECT (ngay_di::date - ngay_den::date) AS days from phong_kem_phieu_thue where ma_phieu_thue = 'PT0001';
+select * from khach_hang;
+select * from phieu_thue;
+select * from phong_kem_phieu_thue;
+select * from loai_phong;
+select * from phong;
+
+select b2.ma_khach_hang , b2.ho_ten, b2.cmnd, b2.sdt, sum(b1.tongtien) as bill
+from 
+(select ptk.ma_phieu_thue, ptk.ma_phong, lp.ma_loai_phong, lp.thue_theo_ngay, (ptk.ngay_di::date - ptk.ngay_den::date) AS days,
+(lp.thue_theo_ngay * (ptk.ngay_di::date - ptk.ngay_den::date)) as tongtien 
+from phong_kem_phieu_thue ptk, loai_phong lp, phong
+where ptk.ma_phong = phong.ma_phong
+and phong.ma_loai_phong = lp.ma_loai_phong
+) as b1, (select * from khach_hang kh right join phieu_thue pt
+on kh.ma_khach_hang = pt.ma_khach_hang) as b2
+where b1.ma_phieu_thue = b2.ma_phieu_thue;
+
+--6.đưa ra thông tin khách hàng và tiền phòng phải thanh toán của toàn bộ khách.
+select b1.ho_ten, b1.ma_khach_hang, b1.cmnd , b1.sdt , b2.ten_phong, ptk.ngay_den , ptk.ngay_di , b2.tongtien as bill
+from 
+(select kh.ho_ten , kh.ma_khach_hang, kh.cmnd, kh.sdt, pt.ma_phieu_thue
+from khach_hang kh, phieu_thue pt
+where kh.ma_khach_hang = pt.ma_khach_hang) as b1,
+(select ptk.ma_phieu_thue, ptk.ma_phong,p.ten_phong, lp.ma_loai_phong, lp.thue_theo_ngay, (ptk.ngay_di::date - ptk.ngay_den::date) AS days,
+(lp.thue_theo_ngay * (ptk.ngay_di::date - ptk.ngay_den::date)) as tongtien 
+from phong_kem_phieu_thue ptk, loai_phong lp, phong p
+where ptk.ma_phong = p.ma_phong
+and p.ma_loai_phong = lp.ma_loai_phong) as b2, phong_kem_phieu_thue ptk
+where b1.ma_phieu_thue = b2.ma_phieu_thue
+and b2.ma_phieu_thue = ptk.ma_phieu_thue;
+--7.Tạo funtion đếm số lượt loại phòng được thuê
+create or replace function public.roomtypeCount(in maloaiphong char)
+returns int
+as
+$$
+begin
+return (select count(b1.ma_loai_phong) as ketqua
+from
+(select lp.ma_loai_phong, loai_phong 
+from loai_phong lp, phong_kem_phieu_thue ptk , phong 
+where ptk.ma_phong = phong.ma_phong
+and phong.ma_loai_phong = lp.ma_loai_phong) as b1
+where b1.ma_loai_phong = maloaiphong);
+end;
+$$
+language plpgsql;
+select public.roomtypeCount('LP0001');
+--8. Thống kê số lượt thuê của loại phòng trong khách sạn
+select * from loai_phong
+select * from phong_kem_phieu_thue
+select * from phieu_thue
+select * from phong
+select distinct(lp.ma_loai_phong), loai_phong, roomtypeCount(lp.ma_loai_phong) as LuotThue
+from loai_phong lp, phong_kem_phieu_thue ptk , phong 
+where ptk.ma_phong = phong.ma_phong
+and phong.ma_loai_phong = lp.ma_loai_phong;
+--9 đưa ra các dịch vụ mà khách hàng KH0001 có thể sử dụng ở thời điểm hiện tại
+select b1.free_service, dv.ten_dich_vu 
+from (select public.free_service('KH0001', current_date)) as b1,
+dich_vu dv
+where free_service = dv.ma_dich_vu;
+
+--10 function dịch vụ free cho khách hàng
+select * from phong_kem_phieu_thue;
+select * from loai_phong
+select * from phieu_thue
+select * from phong
+create or replace function public.free_service(makhachhang char, thoigian date)
+returns table 
+(
+	madichvu char
+)
+as
+$$
+begin
+return query
+(select ma_dich_vu from dich_vu_free dvf, phong_kem_phieu_thue ptk, phieu_thue pt, phong
+ where pt.ma_khach_hang = makhachhang
+ and ptk.ma_phieu_thue = pt.ma_phieu_thue
+ and phong.ma_phong = ptk.ma_phong 
+ and dvf.ma_loai_phong = phong.ma_loai_phong
+ and ptk.ngay_den <= thoigian
+ and ptk.ngay_di >= thoigian);
+end;
+$$
+language plpgsql;
+select public.free_service('KH0004', current_date);
